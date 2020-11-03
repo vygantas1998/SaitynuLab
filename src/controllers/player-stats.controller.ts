@@ -16,6 +16,7 @@ import {
 
   RestBindings
 } from '@loopback/rest';
+import {deleteById, findById, patchById} from '../helpers/helperFunctions';
 import {Player, PlayerStats} from '../models';
 import {PlayerStatsRepository} from '../repositories';
 
@@ -126,6 +127,27 @@ export class PlayerStatsController {
   @get('/player-stats/{id}/players', {
     responses: {
       '200': {
+        description: 'Array of Player model instances',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'array',
+              items: getModelSchemaRef(Player, {includeRelations: true}),
+            },
+          },
+        },
+      },
+    },
+  })
+  async findPlayers(
+    @param.path.string('id') id: typeof PlayerStats.prototype.id,
+    @param.filter(Player) filter?: Filter<Player>,
+    ): Promise<Player[]> {
+    return this.playerStatsRepository.players(id).find(filter);
+  }
+  @get('/player-stats/{id}/players/{playerId}', {
+    responses: {
+      '200': {
         description: 'Player model instance',
         content: {
           'application/json': {
@@ -135,10 +157,76 @@ export class PlayerStatsController {
       },
     },
   })
-  async getPlayers(
-    @param.path.string('id') playerStatsId: typeof PlayerStats.prototype.id,
-    @param.filter(Player) filter?: Filter<Player>
-    ): Promise<Player[]> {
-    return this.playerStatsRepository.players(playerStatsId).find(filter);
+  async findPlayer(
+    @param.path.string('id') id: typeof PlayerStats.prototype.id,
+    @param.path.string('playerId') playerId: typeof Player.prototype.id,
+    @param.filter(Player, {exclude: 'where'})
+    filter?: FilterExcludingWhere<Player>,
+    ): Promise<Player> {
+    return findById(playerId, filter, this.playerStatsRepository, "players", id);
+  }
+  @del('/player-stats/{id}/players/{playerId}', {
+    responses: {
+      '204': {
+        description: 'Player DELETE success',
+      },
+    },
+  })
+  async deletePlayer(
+    @param.path.string('id') id: typeof PlayerStats.prototype.id,
+    @param.path.string('playerId')
+    playerId: typeof Player.prototype.id,
+    ): Promise<String> {
+      this.response.status(204);
+    return deleteById(playerId, {}, this.playerStatsRepository, "players", id);
+  }
+  @patch('/player-stats/{id}/players/{playerId}', {
+    responses: {
+      '204': {
+        description: 'Player PATCH success',
+      },
+    },
+  })
+  async patchPlayer(
+    @param.path.string('id') id: typeof PlayerStats.prototype.id,
+    @param.path.string('playerId')
+    playerId: typeof Player.prototype.id,
+    @requestBody({
+      content: {
+        'application/json': {
+          schema: getModelSchemaRef(Player, {partial: true}),
+        },
+      },
+    })
+    player: Player,
+    ): Promise<String> {
+    this.response.status(204);
+    return patchById(playerId, {}, this.playerStatsRepository, "players", id, player);
+  }
+  @post('/player-stats/{id}/players', {
+    responses: {
+      '201': {
+        description: 'Player model instance',
+        content: {'application/json': {schema: getModelSchemaRef(Player)}},
+      },
+    },
+  })
+  async createPlayer(
+    @param.path.string('id') id: typeof PlayerStats.prototype.id,
+    @requestBody({
+      content: {
+        'application/json': {
+          schema: getModelSchemaRef(Player, {
+            title: 'NewPlayer',
+            exclude: ['id'],
+          }),
+        },
+      },
+    })
+    playerData: Omit<Player, 'id'>,
+    ): Promise<Player> {
+      this.response.status(201);
+    return this.playerStatsRepository.players(id).create(playerData);
   }
 }
+

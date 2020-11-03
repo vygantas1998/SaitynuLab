@@ -16,13 +16,15 @@ import {
 
   RestBindings
 } from '@loopback/rest';
-import {deleteById, findById, patchById} from '../helpers/helperFunctions';
+import {deleteById, deleteThroughById, findById, findThrough, findThroughById, patchById, patchThroughById, postThrough} from '../helpers/helperFunctions';
 import {Match, Player, PlayerStats} from '../models';
-import {MatchRepository} from '../repositories';
+import {MatchRepository, PlayerRepository} from '../repositories';
 export class MatchController {
   constructor(
     @repository(MatchRepository)
     public matchRepository: MatchRepository,
+    @repository(PlayerRepository)
+    public playerRepository: PlayerRepository,
     @inject(RestBindings.Http.RESPONSE) protected response: Response
   ) {}
 
@@ -157,9 +159,10 @@ export class MatchController {
   async findPlayer(
     @param.path.string('id') id: typeof Match.prototype.id,
     @param.path.string('playerId') playerId: typeof Player.prototype.id,
-    @param.filter(Player) filter?: Filter<Player>,
+    @param.filter(Player, {exclude: 'where'})
+    filter?: FilterExcludingWhere<Player>,
     ): Promise<Player> {
-    return findById(playerId, filter, this.matchRepository.players(id).find);
+    return findById(playerId, filter, this.matchRepository, "players", id);
   }
   @del('/matches/{id}/players/{playerId}', {
     responses: {
@@ -174,7 +177,7 @@ export class MatchController {
     playerId: typeof Player.prototype.id,
     ): Promise<String> {
       this.response.status(204);
-    return deleteById(playerId, this.matchRepository.players(id).delete);
+    return deleteById(playerId, {}, this.matchRepository, "players", id);
   }
   @patch('/matches/{id}/players/{playerId}', {
     responses: {
@@ -197,7 +200,7 @@ export class MatchController {
     player: Player,
     ): Promise<String> {
     this.response.status(204);
-    return patchById(playerId, player, this.matchRepository.players(id).patch);
+    return patchById(playerId, {}, this.matchRepository, "players", id , player);
   }
   @post('/matches/{id}/players', {
     responses: {
@@ -243,8 +246,8 @@ export class MatchController {
     @param.path.string('id') id: typeof Match.prototype.id,
     @param.path.string('playerId') playerId: typeof Player.prototype.id,
     @param.filter(PlayerStats) filter?: Filter<PlayerStats>,
-  ): Promise<String> {
-    return new Promise(resolve => setTimeout(()=>{resolve(JSON.parse('{"hello": "world"}'))}));
+  ): Promise<PlayerStats[]> {
+    return findThrough(this.matchRepository.players(id).find({where: {id: playerId}}), filter, this.playerRepository.playerStats);
   }
   @get('/matches/{id}/players/{playerId}/player-stats/{playerStatsId}', {
     responses: {
@@ -263,9 +266,10 @@ export class MatchController {
     @param.path.string('playerId') playerId: typeof Player.prototype.id,
     @param.path.string('playerStatsId')
     playerStatsId: typeof PlayerStats.prototype.id,
-    @param.filter(PlayerStats) filter?: Filter<PlayerStats>,
-  ): Promise<String> {
-    return new Promise(resolve => setTimeout(()=>{resolve(JSON.parse('{"hello": "world"}'))}));
+    @param.filter(PlayerStats, {exclude: 'where'})
+    filter?: FilterExcludingWhere<PlayerStats>,
+  ): Promise<PlayerStats> {
+    return findThroughById(playerStatsId, this.matchRepository.players(id).find({where: {id: playerId}}), filter, this.playerRepository.playerStats);
   }
   @del('/matches/{id}/players/{playerId}/player-stats/{playerStatsId}', {
     responses: {
@@ -279,9 +283,9 @@ export class MatchController {
     @param.path.string('playerId') playerId: typeof Player.prototype.id,
     @param.path.string('playerStatsId')
     playerStatsId: typeof PlayerStats.prototype.id,
-  ): Promise<JSON> {
+  ): Promise<void> {
     this.response.status(204);
-    return new Promise(resolve => setTimeout(()=>{resolve(JSON.parse('{"hello": "world"}'))}));
+    return deleteThroughById(playerStatsId, this.matchRepository.players(id).find({where: {id: playerId}}), {}, this.playerRepository.playerStats);
   }
   @patch('/matches/{id}/players/{playerId}/player-stats/{playerStatsId}', {
     responses: {
@@ -303,9 +307,9 @@ export class MatchController {
       },
     })
     playerStat: PlayerStats,
-  ): Promise<String> {
+  ): Promise<void> {
     this.response.status(204);
-    return new Promise(resolve => setTimeout(()=>{resolve(JSON.parse('{"hello": "world"}'))}));
+    return patchThroughById(playerStatsId, this.matchRepository.players(id).find({where: {id: playerId}}), {}, this.playerRepository.playerStats, playerStat);
   }
   @post('/matches/{id}/players/{playerId}/player-stats', {
     responses: {
@@ -318,9 +322,19 @@ export class MatchController {
   async createPlayerStats(
     @param.path.string('id') id: typeof Match.prototype.id,
     @param.path.string('playerId') playerId: typeof Player.prototype.id,
-    @requestBody() playerStatsData: PlayerStats,
-  ): Promise<string> {
+    @requestBody({
+      content: {
+        'application/json': {
+          schema: getModelSchemaRef(PlayerStats, {
+            title: 'NewPlayerStat',
+            exclude: ['id'],
+          }),
+        },
+      },
+    })
+    playerStatsData: Omit<PlayerStats, 'id'>,
+  ): Promise<PlayerStats> {
     this.response.status(201);
-    return new Promise(resolve => setTimeout(()=>{resolve(JSON.parse('{"hello": "world"}'))}));
+    return postThrough(this.matchRepository.players(id).find({where: {id: playerId}}), this.playerRepository.playerStats, playerStatsData);
   }
 }

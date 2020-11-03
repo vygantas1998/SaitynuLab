@@ -158,9 +158,10 @@ export class PlayerController {
   async findPlayerStat(
     @param.path.string('id') playerId: typeof Player.prototype.id,
     @param.path.string('playerStatId') playerStatId: typeof PlayerStats.prototype.id,
-    @param.filter(PlayerStats) filter?: Filter<PlayerStats>,
+    @param.filter(PlayerStats, {exclude: 'where'})
+    filter?: FilterExcludingWhere<PlayerStats>,
     ): Promise<PlayerStats> {
-    return findById(playerStatId, filter, this.playerRepository.playerStats(playerId).find);
+    return findById(playerStatId, filter, this.playerRepository, "playerStats", playerId);
   }
   @del('/players/{id}/player-stats/{playerStatsId}', {
     responses: {
@@ -175,7 +176,7 @@ export class PlayerController {
     playerStatId: typeof PlayerStats.prototype.id,
     ): Promise<String> {
       this.response.status(204);
-    return deleteById(playerStatId, this.playerRepository.playerStats(playerId).delete);
+    return deleteById(playerStatId, {}, this.playerRepository, "playerStats", playerId);
   }
   @patch('/players/{id}/player-stats/{playerStatsId}', {
     responses: {
@@ -198,7 +199,7 @@ export class PlayerController {
     playerStat: PlayerStats,
     ): Promise<String> {
       this.response.status(204);
-    return patchById(playerStatId, playerStat, this.playerRepository.playerStats(playerId).patch);
+    return patchById(playerStatId, {}, this.playerRepository, "playerStats", playerId , playerStat);
   }
   @post('/players/{id}/player-stats', {
     responses: {
@@ -242,5 +243,87 @@ export class PlayerController {
     @param.filter(Match) filter?: Filter<Match>
     ): Promise<Match[]> {
     return this.playerRepository.matches(playerId).find(filter);
+  }
+  @get('/players/{id}/matches/{matchId}', {
+    responses: {
+      '200': {
+        description: 'Match model instance',
+        content: {
+          'application/json': {
+            schema: getModelSchemaRef(Match, {includeRelations: true}),
+          },
+        },
+      },
+    },
+  })
+  async findMatch(
+    @param.path.string('id') playerId: typeof Player.prototype.id,
+    @param.path.string('matchId') matchId: typeof Match.prototype.id,
+    @param.filter(Match) filter?: Filter<Match>,
+    ): Promise<Match> {
+    return findById(matchId, filter, this.playerRepository, "matches", playerId);
+  }
+  @del('/players/{id}/matches/{matchId}', {
+    responses: {
+      '204': {
+        description: 'Match DELETE success',
+      },
+    },
+  })
+  async deleteMatch(
+    @param.path.string('id') playerId: typeof Player.prototype.id,
+    @param.path.string('matchId')
+    matchId: typeof Match.prototype.id,
+    ): Promise<String> {
+      this.response.status(204);
+    return deleteById(matchId, {}, this.playerRepository, "matches", playerId);
+  }
+  @patch('/players/{id}/matches/{matchId}', {
+    responses: {
+      '204': {
+        description: 'Match PATCH success',
+      },
+    },
+  })
+  async patchMatch(
+    @param.path.string('id') playerId: typeof Player.prototype.id,
+    @param.path.string('matchId')
+    matchId: typeof Match.prototype.id,
+    @requestBody({
+      content: {
+        'application/json': {
+          schema: getModelSchemaRef(Match, {partial: true}),
+        },
+      },
+    })
+    match: Match,
+    ): Promise<String> {
+      this.response.status(204);
+    return patchById(matchId, {}, this.playerRepository, "matches", playerId, match);
+  }
+  @post('/players/{id}/matches', {
+    responses: {
+      '201': {
+        description: 'Match model instance',
+        content: {'application/json': {schema: getModelSchemaRef(Match)}},
+      },
+    },
+  })
+  async createMatch(
+    @param.path.string('id') playerId: typeof Player.prototype.id,
+    @requestBody({
+      content: {
+        'application/json': {
+          schema: getModelSchemaRef(Match, {
+            title: 'NewStat',
+            exclude: ['id'],
+          }),
+        },
+      },
+    })
+    matchData: Omit<Match, 'id'>,
+    ): Promise<Match> {
+      this.response.status(201);
+    return this.playerRepository.matches(playerId).create(matchData);
   }
 }

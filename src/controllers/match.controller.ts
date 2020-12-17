@@ -1,9 +1,7 @@
+import {authenticate} from '@loopback/authentication';
+import {authorize} from '@loopback/authorization';
 import {inject} from '@loopback/core';
-import {
-  Filter,
-  FilterExcludingWhere,
-  repository
-} from '@loopback/repository';
+import {Filter, FilterExcludingWhere, repository} from '@loopback/repository';
 import {
   del,
   get,
@@ -11,23 +9,33 @@ import {
   param,
   patch,
   post,
-
-  requestBody, Response,
-
-  RestBindings
+  requestBody,
+  Response,
+  RestBindings,
 } from '@loopback/rest';
-import {deleteById, deleteThroughById, findById, findThrough, findThroughById, patchById, patchThroughById, postThrough} from '../helpers/helperFunctions';
+import {
+  deleteById,
+  deleteThroughById,
+  findById,
+  findThrough,
+  findThroughById,
+  patchById,
+  patchThroughById,
+  postThrough,
+} from '../helpers/helperFunctions';
 import {Match, Player, PlayerStats} from '../models';
 import {MatchRepository, PlayerRepository} from '../repositories';
+
+@authenticate('jwt')
 export class MatchController {
   constructor(
     @repository(MatchRepository)
     public matchRepository: MatchRepository,
     @repository(PlayerRepository)
     public playerRepository: PlayerRepository,
-    @inject(RestBindings.Http.RESPONSE) protected response: Response
+    @inject(RestBindings.Http.RESPONSE) protected response: Response,
   ) {}
-
+  @authorize({allowedRoles: ['ADMIN']})
   @post('/matches', {
     responses: {
       '201': {
@@ -91,7 +99,7 @@ export class MatchController {
   ): Promise<Match> {
     return this.matchRepository.findById(id, filter);
   }
-
+  @authorize({allowedRoles: ['ADMIN']})
   @patch('/matches/{id}', {
     responses: {
       '204': {
@@ -112,7 +120,7 @@ export class MatchController {
   ): Promise<void> {
     await this.matchRepository.updateById(id, match);
   }
-
+  @authorize({allowedRoles: ['ADMIN']})
   @del('/matches/{id}', {
     responses: {
       '204': {
@@ -141,7 +149,7 @@ export class MatchController {
   async findPlayers(
     @param.path.string('id') id: typeof Match.prototype.id,
     @param.filter(Player) filter?: Filter<Player>,
-    ): Promise<Player[]> {
+  ): Promise<Player[]> {
     return this.matchRepository.players(id).find(filter);
   }
   @get('/matches/{id}/players/{playerId}', {
@@ -161,9 +169,10 @@ export class MatchController {
     @param.path.string('playerId') playerId: typeof Player.prototype.id,
     @param.filter(Player, {exclude: 'where'})
     filter?: FilterExcludingWhere<Player>,
-    ): Promise<Player> {
-    return findById(playerId, filter, this.matchRepository, "players", id);
+  ): Promise<Player> {
+    return findById(playerId, filter, this.matchRepository, 'players', id);
   }
+  @authorize({allowedRoles: ['ADMIN']})
   @del('/matches/{id}/players/{playerId}', {
     responses: {
       '204': {
@@ -175,10 +184,11 @@ export class MatchController {
     @param.path.string('id') id: typeof Match.prototype.id,
     @param.path.string('playerId')
     playerId: typeof Player.prototype.id,
-    ): Promise<String> {
-      this.response.status(204);
-    return deleteById(playerId, {}, this.matchRepository, "players", id);
+  ): Promise<String> {
+    this.response.status(204);
+    return deleteById(playerId, {}, this.matchRepository, 'players', id);
   }
+  @authorize({allowedRoles: ['ADMIN']})
   @patch('/matches/{id}/players/{playerId}', {
     responses: {
       '204': {
@@ -198,10 +208,11 @@ export class MatchController {
       },
     })
     player: Player,
-    ): Promise<String> {
+  ): Promise<String> {
     this.response.status(204);
-    return patchById(playerId, {}, this.matchRepository, "players", id , player);
+    return patchById(playerId, {}, this.matchRepository, 'players', id, player);
   }
+  @authorize({allowedRoles: ['ADMIN']})
   @post('/matches/{id}/players', {
     responses: {
       '201': {
@@ -223,8 +234,8 @@ export class MatchController {
       },
     })
     playerData: Omit<Player, 'id'>,
-    ): Promise<Player> {
-      this.response.status(201);
+  ): Promise<Player> {
+    this.response.status(201);
     return this.matchRepository.players(id).create(playerData);
   }
   @get('/matches/{id}/players/{playerId}/player-stats', {
@@ -247,7 +258,11 @@ export class MatchController {
     @param.path.string('playerId') playerId: typeof Player.prototype.id,
     @param.filter(PlayerStats) filter?: Filter<PlayerStats>,
   ): Promise<PlayerStats[]> {
-    return findThrough(this.matchRepository.players(id).find({where: {id: playerId}}), filter, this.playerRepository.playerStats);
+    return findThrough(
+      this.matchRepository.players(id).find({where: {id: playerId}}),
+      filter,
+      this.playerRepository.playerStats,
+    );
   }
   @get('/matches/{id}/players/{playerId}/player-stats/{playerStatsId}', {
     responses: {
@@ -269,8 +284,14 @@ export class MatchController {
     @param.filter(PlayerStats, {exclude: 'where'})
     filter?: FilterExcludingWhere<PlayerStats>,
   ): Promise<PlayerStats> {
-    return findThroughById(playerStatsId, this.matchRepository.players(id).find({where: {id: playerId}}), filter, this.playerRepository.playerStats);
+    return findThroughById(
+      playerStatsId,
+      this.matchRepository.players(id).find({where: {id: playerId}}),
+      filter,
+      this.playerRepository.playerStats,
+    );
   }
+  @authorize({allowedRoles: ['ADMIN']})
   @del('/matches/{id}/players/{playerId}/player-stats/{playerStatsId}', {
     responses: {
       '204': {
@@ -285,8 +306,14 @@ export class MatchController {
     playerStatsId: typeof PlayerStats.prototype.id,
   ): Promise<void> {
     this.response.status(204);
-    return deleteThroughById(playerStatsId, this.matchRepository.players(id).find({where: {id: playerId}}), {}, this.playerRepository.playerStats);
+    return deleteThroughById(
+      playerStatsId,
+      this.matchRepository.players(id).find({where: {id: playerId}}),
+      {},
+      this.playerRepository.playerStats,
+    );
   }
+  @authorize({allowedRoles: ['ADMIN']})
   @patch('/matches/{id}/players/{playerId}/player-stats/{playerStatsId}', {
     responses: {
       '204': {
@@ -309,8 +336,15 @@ export class MatchController {
     playerStat: PlayerStats,
   ): Promise<void> {
     this.response.status(204);
-    return patchThroughById(playerStatsId, this.matchRepository.players(id).find({where: {id: playerId}}), {}, this.playerRepository.playerStats, playerStat);
+    return patchThroughById(
+      playerStatsId,
+      this.matchRepository.players(id).find({where: {id: playerId}}),
+      {},
+      this.playerRepository.playerStats,
+      playerStat,
+    );
   }
+  @authorize({allowedRoles: ['ADMIN']})
   @post('/matches/{id}/players/{playerId}/player-stats', {
     responses: {
       '201': {
@@ -335,6 +369,10 @@ export class MatchController {
     playerStatsData: Omit<PlayerStats, 'id'>,
   ): Promise<PlayerStats> {
     this.response.status(201);
-    return postThrough(this.matchRepository.players(id).find({where: {id: playerId}}), this.playerRepository.playerStats, playerStatsData);
+    return postThrough(
+      this.matchRepository.players(id).find({where: {id: playerId}}),
+      this.playerRepository.playerStats,
+      playerStatsData,
+    );
   }
 }

@@ -1,9 +1,7 @@
+import {authenticate} from '@loopback/authentication';
+import {authorize} from '@loopback/authorization';
 import {inject} from '@loopback/core';
-import {
-  Filter,
-  FilterExcludingWhere,
-  repository
-} from '@loopback/repository';
+import {Filter, FilterExcludingWhere, repository} from '@loopback/repository';
 import {
   del,
   get,
@@ -11,22 +9,22 @@ import {
   param,
   patch,
   post,
-
-  requestBody, Response,
-
-  RestBindings
+  requestBody,
+  Response,
+  RestBindings,
 } from '@loopback/rest';
 import {deleteById, findById, patchById} from '../helpers/helperFunctions';
 import {Player, PlayerStats} from '../models';
 import {PlayerStatsRepository} from '../repositories';
 
+@authenticate('jwt')
 export class PlayerStatsController {
   constructor(
     @repository(PlayerStatsRepository)
     public playerStatsRepository: PlayerStatsRepository,
-    @inject(RestBindings.Http.RESPONSE) protected response: Response
+    @inject(RestBindings.Http.RESPONSE) protected response: Response,
   ) {}
-
+  @authorize({allowedRoles: ['ADMIN']})
   @post('/player-stats', {
     responses: {
       '201': {
@@ -92,7 +90,7 @@ export class PlayerStatsController {
   ): Promise<PlayerStats> {
     return this.playerStatsRepository.findById(id, filter);
   }
-
+  @authorize({allowedRoles: ['ADMIN']})
   @patch('/player-stats/{id}', {
     responses: {
       '204': {
@@ -113,7 +111,7 @@ export class PlayerStatsController {
   ): Promise<void> {
     await this.playerStatsRepository.updateById(id, playerStats);
   }
-
+  @authorize({allowedRoles: ['ADMIN']})
   @del('/player-stats/{id}', {
     responses: {
       '204': {
@@ -142,7 +140,7 @@ export class PlayerStatsController {
   async findPlayers(
     @param.path.string('id') id: typeof PlayerStats.prototype.id,
     @param.filter(Player) filter?: Filter<Player>,
-    ): Promise<Player[]> {
+  ): Promise<Player[]> {
     return this.playerStatsRepository.players(id).find(filter);
   }
   @get('/player-stats/{id}/players/{playerId}', {
@@ -162,9 +160,16 @@ export class PlayerStatsController {
     @param.path.string('playerId') playerId: typeof Player.prototype.id,
     @param.filter(Player, {exclude: 'where'})
     filter?: FilterExcludingWhere<Player>,
-    ): Promise<Player> {
-    return findById(playerId, filter, this.playerStatsRepository, "players", id);
+  ): Promise<Player> {
+    return findById(
+      playerId,
+      filter,
+      this.playerStatsRepository,
+      'players',
+      id,
+    );
   }
+  @authorize({allowedRoles: ['ADMIN']})
   @del('/player-stats/{id}/players/{playerId}', {
     responses: {
       '204': {
@@ -176,10 +181,11 @@ export class PlayerStatsController {
     @param.path.string('id') id: typeof PlayerStats.prototype.id,
     @param.path.string('playerId')
     playerId: typeof Player.prototype.id,
-    ): Promise<String> {
-      this.response.status(204);
-    return deleteById(playerId, {}, this.playerStatsRepository, "players", id);
+  ): Promise<String> {
+    this.response.status(204);
+    return deleteById(playerId, {}, this.playerStatsRepository, 'players', id);
   }
+  @authorize({allowedRoles: ['ADMIN']})
   @patch('/player-stats/{id}/players/{playerId}', {
     responses: {
       '204': {
@@ -199,10 +205,18 @@ export class PlayerStatsController {
       },
     })
     player: Player,
-    ): Promise<String> {
+  ): Promise<String> {
     this.response.status(204);
-    return patchById(playerId, {}, this.playerStatsRepository, "players", id, player);
+    return patchById(
+      playerId,
+      {},
+      this.playerStatsRepository,
+      'players',
+      id,
+      player,
+    );
   }
+  @authorize({allowedRoles: ['ADMIN']})
   @post('/player-stats/{id}/players', {
     responses: {
       '201': {
@@ -224,9 +238,8 @@ export class PlayerStatsController {
       },
     })
     playerData: Omit<Player, 'id'>,
-    ): Promise<Player> {
-      this.response.status(201);
+  ): Promise<Player> {
+    this.response.status(201);
     return this.playerStatsRepository.players(id).create(playerData);
   }
 }
-

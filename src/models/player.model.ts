@@ -16,7 +16,7 @@ export class Player extends Entity {
   @property({
     type: 'string',
   })
-  name?: string;
+  name: string;
 
   @property({
     type: 'string',

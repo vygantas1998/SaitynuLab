@@ -1,9 +1,7 @@
+import {authenticate} from '@loopback/authentication';
+import {authorize} from '@loopback/authorization';
 import {inject} from '@loopback/core';
-import {
-  Filter,
-  FilterExcludingWhere,
-  repository
-} from '@loopback/repository';
+import {Filter, FilterExcludingWhere, repository} from '@loopback/repository';
 import {
   del,
   get,
@@ -11,22 +9,22 @@ import {
   param,
   patch,
   post,
-
-  requestBody, Response,
-
-  RestBindings
+  requestBody,
+  Response,
+  RestBindings,
 } from '@loopback/rest';
 import {deleteById, findById, patchById} from '../helpers/helperFunctions';
 import {Match, Player, PlayerStats} from '../models';
 import {PlayerRepository} from '../repositories';
 
+@authenticate('jwt')
 export class PlayerController {
   constructor(
     @repository(PlayerRepository)
     public playerRepository: PlayerRepository,
-    @inject(RestBindings.Http.RESPONSE) protected response: Response
+    @inject(RestBindings.Http.RESPONSE) protected response: Response,
   ) {}
-
+  @authorize({allowedRoles: ['ADMIN']})
   @post('/players', {
     responses: {
       '201': {
@@ -90,7 +88,7 @@ export class PlayerController {
   ): Promise<Player> {
     return this.playerRepository.findById(id, filter);
   }
-
+  @authorize({allowedRoles: ['ADMIN']})
   @patch('/players/{id}', {
     responses: {
       '204': {
@@ -111,7 +109,7 @@ export class PlayerController {
   ): Promise<void> {
     await this.playerRepository.updateById(id, player);
   }
-
+  @authorize({allowedRoles: ['ADMIN']})
   @del('/players/{id}', {
     responses: {
       '204': {
@@ -140,7 +138,7 @@ export class PlayerController {
   async findPlayerStats(
     @param.path.string('id') playerId: typeof Player.prototype.id,
     @param.filter(PlayerStats) filter?: Filter<PlayerStats>,
-    ): Promise<PlayerStats[]> {
+  ): Promise<PlayerStats[]> {
     return this.playerRepository.playerStats(playerId).find(filter);
   }
   @get('/players/{id}/player-stats/{playerStatId}', {
@@ -157,12 +155,20 @@ export class PlayerController {
   })
   async findPlayerStat(
     @param.path.string('id') playerId: typeof Player.prototype.id,
-    @param.path.string('playerStatId') playerStatId: typeof PlayerStats.prototype.id,
+    @param.path.string('playerStatId')
+    playerStatId: typeof PlayerStats.prototype.id,
     @param.filter(PlayerStats, {exclude: 'where'})
     filter?: FilterExcludingWhere<PlayerStats>,
-    ): Promise<PlayerStats> {
-    return findById(playerStatId, filter, this.playerRepository, "playerStats", playerId);
+  ): Promise<PlayerStats> {
+    return findById(
+      playerStatId,
+      filter,
+      this.playerRepository,
+      'playerStats',
+      playerId,
+    );
   }
+  @authorize({allowedRoles: ['ADMIN']})
   @del('/players/{id}/player-stats/{playerStatsId}', {
     responses: {
       '204': {
@@ -174,10 +180,17 @@ export class PlayerController {
     @param.path.string('id') playerId: typeof Player.prototype.id,
     @param.path.string('playerStatsId')
     playerStatId: typeof PlayerStats.prototype.id,
-    ): Promise<String> {
-      this.response.status(204);
-    return deleteById(playerStatId, {}, this.playerRepository, "playerStats", playerId);
+  ): Promise<String> {
+    this.response.status(204);
+    return deleteById(
+      playerStatId,
+      {},
+      this.playerRepository,
+      'playerStats',
+      playerId,
+    );
   }
+  @authorize({allowedRoles: ['ADMIN']})
   @patch('/players/{id}/player-stats/{playerStatsId}', {
     responses: {
       '204': {
@@ -197,10 +210,18 @@ export class PlayerController {
       },
     })
     playerStat: PlayerStats,
-    ): Promise<String> {
-      this.response.status(204);
-    return patchById(playerStatId, {}, this.playerRepository, "playerStats", playerId , playerStat);
+  ): Promise<String> {
+    this.response.status(204);
+    return patchById(
+      playerStatId,
+      {},
+      this.playerRepository,
+      'playerStats',
+      playerId,
+      playerStat,
+    );
   }
+  @authorize({allowedRoles: ['ADMIN']})
   @post('/players/{id}/player-stats', {
     responses: {
       '201': {
@@ -222,8 +243,8 @@ export class PlayerController {
       },
     })
     playerStatData: Omit<PlayerStats, 'id'>,
-    ): Promise<PlayerStats> {
-      this.response.status(201);
+  ): Promise<PlayerStats> {
+    this.response.status(201);
     return this.playerRepository.playerStats(playerId).create(playerStatData);
   }
   @get('/players/{id}/matches', {
@@ -240,8 +261,8 @@ export class PlayerController {
   })
   async findMatches(
     @param.path.string('id') playerId: typeof Player.prototype.id,
-    @param.filter(Match) filter?: Filter<Match>
-    ): Promise<Match[]> {
+    @param.filter(Match) filter?: Filter<Match>,
+  ): Promise<Match[]> {
     return this.playerRepository.matches(playerId).find(filter);
   }
   @get('/players/{id}/matches/{matchId}', {
@@ -260,9 +281,16 @@ export class PlayerController {
     @param.path.string('id') playerId: typeof Player.prototype.id,
     @param.path.string('matchId') matchId: typeof Match.prototype.id,
     @param.filter(Match) filter?: Filter<Match>,
-    ): Promise<Match> {
-    return findById(matchId, filter, this.playerRepository, "matches", playerId);
+  ): Promise<Match> {
+    return findById(
+      matchId,
+      filter,
+      this.playerRepository,
+      'matches',
+      playerId,
+    );
   }
+  @authorize({allowedRoles: ['ADMIN']})
   @del('/players/{id}/matches/{matchId}', {
     responses: {
       '204': {
@@ -274,10 +302,11 @@ export class PlayerController {
     @param.path.string('id') playerId: typeof Player.prototype.id,
     @param.path.string('matchId')
     matchId: typeof Match.prototype.id,
-    ): Promise<String> {
-      this.response.status(204);
-    return deleteById(matchId, {}, this.playerRepository, "matches", playerId);
+  ): Promise<String> {
+    this.response.status(204);
+    return deleteById(matchId, {}, this.playerRepository, 'matches', playerId);
   }
+  @authorize({allowedRoles: ['ADMIN']})
   @patch('/players/{id}/matches/{matchId}', {
     responses: {
       '204': {
@@ -297,10 +326,18 @@ export class PlayerController {
       },
     })
     match: Match,
-    ): Promise<String> {
-      this.response.status(204);
-    return patchById(matchId, {}, this.playerRepository, "matches", playerId, match);
+  ): Promise<String> {
+    this.response.status(204);
+    return patchById(
+      matchId,
+      {},
+      this.playerRepository,
+      'matches',
+      playerId,
+      match,
+    );
   }
+  @authorize({allowedRoles: ['ADMIN']})
   @post('/players/{id}/matches', {
     responses: {
       '201': {
@@ -322,8 +359,8 @@ export class PlayerController {
       },
     })
     matchData: Omit<Match, 'id'>,
-    ): Promise<Match> {
-      this.response.status(201);
+  ): Promise<Match> {
+    this.response.status(201);
     return this.playerRepository.matches(playerId).create(matchData);
   }
 }
